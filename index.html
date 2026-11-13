@@ -1,0 +1,780 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f5f7f4">
+  <title>Dealer Billing — Traka</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #1d2b24;
+      --muted: #68766e;
+      --line: #e2e8e3;
+      --paper: #fff;
+      --canvas: #f5f7f4;
+      --green: #245c43;
+      --green-dark: #194832;
+      --green-soft: #eaf3ed;
+      --red: #a53d39;
+      --red-soft: #fff0ef;
+      --amber: #99651f;
+      --amber-soft: #fff5e5;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+    body { margin: 0; min-width: 320px; background: var(--canvas); color: var(--ink); }
+    button, input, textarea { font: inherit; }
+    button { cursor: pointer; }
+    .shell { max-width: 1040px; margin: 0 auto; padding: 38px 28px 56px; }
+    .topbar { display: flex; align-items: center; justify-content: space-between; gap: 20px; margin-bottom: 26px; }
+    .brand { display: flex; align-items: center; gap: 12px; }
+    .brand-logo { display: block; width: 98px; height: 40px; object-fit: contain; }
+    h1 { margin: 0; font-size: 22px; letter-spacing: -.035em; }
+    .brand-caption { margin: 3px 0 0; color: var(--muted); font-size: 12px; }
+    .today { color: var(--muted); font-size: 12px; }
+    .tabs { display: flex; gap: 5px; overflow-x: auto; margin-bottom: 22px; padding: 5px; border: 1px solid var(--line); border-radius: 12px; background: #edf1ed; }
+    .tab { flex: 1 0 auto; min-height: 38px; padding: 0 16px; border: 0; border-radius: 8px; background: transparent; color: #657269; font-size: 13px; font-weight: 700; }
+    .tab:hover { color: var(--ink); }
+    .tab[aria-selected="true"] { background: white; color: var(--green); box-shadow: 0 1px 3px #1d2b2414; }
+    .storage-error { display: none; margin-bottom: 16px; padding: 12px 14px; border: 1px solid #f1c8c5; border-radius: 9px; background: var(--red-soft); color: var(--red); font-size: 13px; }
+    .summary { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 13px; margin-bottom: 20px; }
+    .stat { min-height: 88px; padding: 16px 19px; border: 1px solid var(--line); border-radius: 13px; background: white; }
+    .stat-label { color: var(--muted); font-size: 12px; font-weight: 650; }
+    .stat-value { display: block; margin-top: 8px; font-size: 23px; font-weight: 770; letter-spacing: -.035em; }
+    .stat-value.warning { color: var(--red); }
+    .toolbar { display: flex; align-items: end; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 13px; }
+    .toolbar-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+    .field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+    label { color: #435249; font-size: 12px; font-weight: 700; }
+    input, textarea { width: 100%; min-height: 41px; padding: 9px 11px; border: 1px solid #d5ded7; border-radius: 8px; outline: none; background: white; color: var(--ink); }
+    textarea { min-height: 105px; resize: vertical; line-height: 1.5; }
+    input:focus, textarea:focus { border-color: var(--green); box-shadow: 0 0 0 3px #245c431a; }
+    input:disabled { background: #f2f4f2; color: #7e8981; }
+    .month-field { width: 178px; }
+    .button { min-height: 39px; padding: 0 13px; border: 1px solid #d8e0da; border-radius: 8px; background: white; color: #46564b; font-size: 12px; font-weight: 720; }
+    .button:hover { border-color: #b7c7ba; background: #f9fbf9; }
+    .button:disabled { cursor: not-allowed; opacity: .48; }
+    .button.primary { border-color: var(--green); background: var(--green); color: white; }
+    .button.primary:hover { background: var(--green-dark); }
+    .button.danger { border-color: transparent; background: transparent; color: var(--red); }
+    .button.danger:hover { background: var(--red-soft); }
+    .button.small { min-height: 31px; padding: 0 9px; font-size: 11px; }
+    .hint { margin: 11px 1px 15px; color: var(--muted); font-size: 12px; line-height: 1.5; }
+    .invoice-list, .dealer-list, .unit-list { display: grid; gap: 10px; }
+    .invoice-card, .dealer-card, .unit-row { border: 1px solid var(--line); border-radius: 12px; background: white; }
+    .invoice-card { padding: 15px 17px; }
+    .invoice-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .invoice-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+    .invoice-number { font-size: 13px; font-weight: 800; letter-spacing: .01em; }
+    .invoice-amount { white-space: nowrap; font-size: 17px; font-weight: 790; }
+    .status { padding: 4px 8px; border-radius: 99px; background: var(--green-soft); color: var(--green); font-size: 10px; font-weight: 800; }
+    .status.unpaid { background: var(--amber-soft); color: var(--amber); }
+    .status.overdue { background: var(--red-soft); color: var(--red); }
+    .restricted-tag { color: var(--red); font-size: 10px; font-weight: 750; }
+    .invoice-dealer { margin: 9px 0 4px; font-size: 14px; font-weight: 730; }
+    .invoice-detail { color: var(--muted); font-size: 11px; }
+    .invoice-actions, .dealer-actions { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 11px; }
+    .empty { padding: 38px 20px; border: 1px dashed #d7dfd8; border-radius: 12px; background: #fbfcfb; color: var(--muted); text-align: center; font-size: 13px; }
+    .empty strong { display: block; margin-bottom: 5px; color: var(--ink); }
+    .section-heading { margin: 3px 0 15px; font-size: 17px; letter-spacing: -.02em; }
+    .unit-row { display: grid; grid-template-columns: minmax(125px, 1fr) 120px minmax(105px, .7fr); align-items: center; gap: 14px; padding: 13px 15px; }
+    .unit-dealer { font-size: 13px; font-weight: 740; }
+    .unit-invoice-note { display: block; margin-top: 3px; color: var(--muted); font-size: 10px; }
+    .unit-value { text-align: right; font-size: 13px; font-weight: 740; }
+    .unit-footer { display: flex; justify-content: flex-end; margin-top: 14px; }
+    .panel { padding: 19px; border: 1px solid var(--line); border-radius: 13px; background: white; }
+    .panel + .panel { margin-top: 14px; }
+    .panel h2 { margin: 0 0 15px; font-size: 16px; letter-spacing: -.02em; }
+    .form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 13px; }
+    .form-grid .wide { grid-column: 1 / -1; }
+    .form-actions { display: flex; gap: 8px; margin-top: 14px; }
+    .dealer-card { display: flex; align-items: start; justify-content: space-between; gap: 14px; padding: 15px 17px; }
+    .dealer-info { min-width: 0; }
+    .dealer-name { margin: 0; font-size: 13px; font-weight: 760; }
+    .dealer-number { color: var(--muted); font-size: 11px; font-weight: 600; }
+    .dealer-contact { margin-top: 5px; color: var(--muted); font-size: 11px; line-height: 1.5; overflow-wrap: anywhere; }
+    .dealer-actions { flex: 0 0 auto; margin-top: 0; }
+    .settings-note { margin: 12px 0 0; color: var(--muted); font-size: 11px; line-height: 1.5; }
+    .error-message { min-height: 15px; margin: 9px 0 0; color: var(--red); font-size: 12px; }
+    dialog { width: min(660px, calc(100% - 28px)); max-height: 92vh; padding: 0; overflow: auto; border: 1px solid var(--line); border-radius: 12px; background: white; color: var(--ink); box-shadow: 0 20px 70px #11221945; }
+    dialog::backdrop { background: #10201770; }
+    .dialog-actions { position: sticky; top: 0; display: flex; justify-content: flex-end; gap: 7px; padding: 12px 16px; border-bottom: 1px solid var(--line); background: white; }
+    .invoice-paper { padding: 28px 34px 34px; }
+    .invoice-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+    .invoice-logo { display: block; width: 105px; height: 40px; object-fit: contain; object-position: left center; }
+    .invoice-company { margin-top: 6px; font-size: 10px; line-height: 1.55; }
+    .invoice-company strong { display: block; font-size: 11px; }
+    .invoice-title { margin: 3px 0 0; font-size: 24px; font-weight: 800; letter-spacing: -.03em; }
+    .invoice-doc-meta { display: flex; justify-content: space-between; gap: 12px; margin: 20px 0; color: var(--muted); font-size: 12px; }
+    .invoice-doc-number { color: var(--ink); font-weight: 800; }
+    .bill-to { margin-bottom: 22px; line-height: 1.65; font-size: 12px; }
+    .bill-to strong { display: block; font-size: 14px; }
+    .invoice-table { width: 100%; border-collapse: collapse; text-align: left; }
+    .invoice-table th, .invoice-table td { padding: 10px 8px; border-bottom: 1px solid var(--line); font-size: 11px; }
+    .invoice-table th { color: var(--muted); font-size: 10px; text-transform: uppercase; }
+    .invoice-table th:not(:first-child), .invoice-table td:not(:first-child) { text-align: right; }
+    .totals { display: grid; justify-content: end; gap: 8px; margin: 15px 0 24px; font-size: 12px; }
+    .total-line { display: flex; justify-content: space-between; gap: 32px; }
+    .total-line.grand { padding-top: 9px; border-top: 1px solid var(--line); font-size: 15px; font-weight: 800; }
+    .invoice-note { margin-top: 19px; font-size: 11px; line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; }
+    .invoice-note.payment-instructions { width: 60%; margin-right: auto; text-align: left; }
+    .invoice-note strong { display: block; margin-bottom: 5px; }
+    .invoice-terms { color: var(--muted); }
+    @media (max-width: 620px) {
+      .shell { padding: 23px 15px 38px; }
+      .today { display: none; }
+      .tab { padding: 0 11px; }
+      .invoice-card { padding: 13px; }
+      .invoice-top { align-items: flex-start; }
+      .invoice-amount { font-size: 15px; }
+      .unit-row { grid-template-columns: minmax(92px, 1fr) 92px minmax(83px, .75fr); gap: 8px; padding: 11px 9px; }
+      .dealer-card { flex-direction: column; }
+      .dealer-actions { margin-top: 0; }
+      .form-grid { grid-template-columns: 1fr; }
+      .form-grid .wide { grid-column: auto; }
+      .invoice-paper { padding: 22px 18px 26px; }
+      .invoice-note.payment-instructions { width: 100%; }
+    }
+    @media print {
+      body { min-width: auto; background: white; }
+      body > *:not(#invoice-dialog) { display: none !important; }
+      #invoice-dialog { position: static; display: block; width: 100%; max-height: none; overflow: visible; border: 0; border-radius: 0; box-shadow: none; }
+      #invoice-dialog::backdrop, .dialog-actions { display: none !important; }
+      .invoice-paper { padding: 12mm; }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <div class="brand">
+        <img class="brand-logo" src="traka-logo.png" alt="Traka">
+        <div>
+          <h1>Dealer billing</h1>
+          <p class="brand-caption">Traka dealer billing</p>
+        </div>
+      </div>
+      <div class="today" id="today-label"></div>
+    </header>
+
+    <nav class="tabs" aria-label="Dealer billing sections">
+      <button class="tab" data-page="invoices" aria-selected="true">Invoices</button>
+      <button class="tab" data-page="units" aria-selected="false">Units</button>
+      <button class="tab" data-page="dealers" aria-selected="false">Dealers</button>
+      <button class="tab" data-page="settings" aria-selected="false">Settings</button>
+    </nav>
+    <div class="storage-error" id="storage-error" role="alert"></div>
+    <section id="page-content"></section>
+  </main>
+
+  <dialog id="invoice-dialog" aria-label="Invoice">
+    <div class="dialog-actions">
+      <button class="button small" id="print-invoice">Print</button>
+      <button class="button small" id="download-invoice">Download</button>
+      <button class="button small" id="close-invoice">Close</button>
+    </div>
+    <article class="invoice-paper" id="invoice-paper"></article>
+  </dialog>
+
+  <script>
+    "use strict";
+
+    const STORAGE_KEY = "fofi-dealer-billing-v2";
+    const DEFAULT_PAYMENT_INSTRUCTIONS = [
+      "Pay by Cheque, Bank Transfer or AfriMoney to any of the following accounts.",
+      "",
+      "Direct payment into Bank account",
+      "Bank: Zenith",
+      "Account name: MyTraka Limited",
+      "Account number: 6010131251",
+      "BBan number: 012001601013125192",
+      "",
+      "AfriMoney Merchant Pay",
+      "Network: Africell",
+      "Merchant name: MyTraka",
+      "Merchant code: 119678"
+    ].join("\n");
+    const $ = (selector, root = document) => root.querySelector(selector);
+    const content = $("#page-content");
+    const storageError = $("#storage-error");
+    const invoiceDialog = $("#invoice-dialog");
+    let activePage = "invoices";
+    let selectedMonth = "2026-10";
+    let selectedInvoiceId = "";
+    let storageFailed = false;
+
+    function makeInitialState() {
+      const dealers = [
+        { id: "D001", name: "PM", address: "17 Circular road", phone: "2323363944", restricted: false },
+        { id: "D002", name: "Shejam", address: "17 Circular Road", phone: "23275010799", restricted: false },
+        { id: "D003", name: "Yang", address: "17 Circular road", phone: "23234007455", restricted: false },
+        { id: "D004", name: "Fambul", address: "Kissy Road", phone: "23277010755", restricted: true }
+      ];
+      const units = {
+        "2026-10": { D001: 500, D002: 2000, D003: 600, D004: 50 },
+        "2026-09": { D001: 1000, D002: 2500, D003: 700 }
+      };
+      const invoiceRows = [
+        ["OCT26-001", "D001", "2026-10", 500, true],
+        ["OCT26-002", "D002", "2026-10", 2000, true],
+        ["OCT26-003", "D003", "2026-10", 600, true],
+        ["OCT26-004", "D004", "2026-10", 50, false],
+        ["SEP26-001", "D001", "2026-09", 1000, true],
+        ["SEP26-002", "D002", "2026-09", 2500, true],
+        ["SEP26-003", "D003", "2026-09", 700, true]
+      ];
+      const invoices = invoiceRows.map(([id, dealerId, month, quantity, paid]) => ({
+        id, dealerId, month, units: quantity, unitPrice: 24, dueDay: 10, discount: 0, paid,
+        invoiceDate: "2026-11-13", companyName: "", companyAddress: "", companyPhone: ""
+      }));
+      return {
+        settings: {
+          unitPrice: 24,
+          dueDay: 10,
+          paymentInstructions: DEFAULT_PAYMENT_INSTRUCTIONS,
+          paymentInstructionsInitialized: true,
+          companyName: "",
+          companyAddress: "",
+          companyPhone: ""
+        },
+        dealers,
+        units,
+        invoices,
+        nextDealerNumber: 5,
+        nextInvoiceNumber: { "2026-10": 5, "2026-09": 4 }
+      };
+    }
+
+    let state;
+
+    function showStorageError(message) {
+      storageError.textContent = message;
+      storageError.style.display = "block";
+      storageFailed = true;
+    }
+
+    function loadState() {
+      try {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (!saved) {
+          state = makeInitialState();
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+          return;
+        }
+        const parsed = JSON.parse(saved);
+        if (!parsed || !parsed.settings || !Array.isArray(parsed.dealers) ||
+            !parsed.units || !Array.isArray(parsed.invoices) ||
+            !Number.isSafeInteger(parsed.settings.unitPrice) || parsed.settings.unitPrice < 1 ||
+            !Number.isSafeInteger(parsed.settings.dueDay) || parsed.settings.dueDay < 1 || parsed.settings.dueDay > 28) {
+          throw new Error("Saved billing data is not in the expected format.");
+        }
+        state = parsed;
+        let migrated = false;
+        const paymentInstructionsInitialized = state.settings.paymentInstructionsInitialized === true;
+        const defaults = makeInitialState().settings;
+        state.settings = {
+          ...defaults,
+          ...state.settings,
+          paymentInstructions: typeof state.settings.paymentInstructions === "string"
+            ? state.settings.paymentInstructions
+            : defaults.paymentInstructions,
+          paymentInstructionsInitialized,
+          companyName: typeof state.settings.companyName === "string" ? state.settings.companyName : defaults.companyName,
+          companyAddress: typeof state.settings.companyAddress === "string" ? state.settings.companyAddress : defaults.companyAddress,
+          companyPhone: typeof state.settings.companyPhone === "string" ? state.settings.companyPhone : defaults.companyPhone
+        };
+        if (!paymentInstructionsInitialized) {
+          if (!state.settings.paymentInstructions.trim()) {
+            state.settings.paymentInstructions = DEFAULT_PAYMENT_INSTRUCTIONS;
+          }
+          state.settings.paymentInstructionsInitialized = true;
+          migrated = true;
+        }
+        if (state.settings.companyName === "Fofi's Multi Services Limited") {
+          state.settings.companyName = "";
+          migrated = true;
+        }
+        if (state.settings.companyAddress === "2 Leicester Peak Road, IMATT Freetown") {
+          state.settings.companyAddress = "";
+          migrated = true;
+        }
+        state.invoices.forEach((invoice) => {
+          if (invoice.companyName === "Fofi's Multi Services Limited") {
+            invoice.companyName = "";
+            migrated = true;
+          }
+          if (invoice.companyAddress === "2 Leicester Peak Road, IMATT Freetown") {
+            invoice.companyAddress = "";
+            migrated = true;
+          }
+        });
+        if (!Number.isSafeInteger(state.nextDealerNumber)) state.nextDealerNumber = state.dealers.length + 1;
+        if (!state.nextInvoiceNumber || typeof state.nextInvoiceNumber !== "object") state.nextInvoiceNumber = {};
+        if (migrated) persist();
+      } catch (error) {
+        state = makeInitialState();
+        showStorageError("Billing data could not be loaded or saved. " + error.message);
+      }
+    }
+
+    function persist() {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+        storageFailed = false;
+        storageError.style.display = "none";
+        return true;
+      } catch (error) {
+        showStorageError("Your changes could not be saved in this browser. " + error.message);
+        return false;
+      }
+    }
+
+    function todayISO() {
+      const date = new Date();
+      return date.getFullYear() + "-" + String(date.getMonth() + 1).padStart(2, "0") + "-" + String(date.getDate()).padStart(2, "0");
+    }
+
+    function monthDate(month, day) {
+      const [year, monthNumber] = month.split("-").map(Number);
+      const dueYear = monthNumber === 12 ? year + 1 : year;
+      const dueMonth = monthNumber === 12 ? 1 : monthNumber + 1;
+      const lastDay = new Date(dueYear, dueMonth, 0).getDate();
+      return dueYear + "-" + String(dueMonth).padStart(2, "0") + "-" + String(Math.min(day, lastDay)).padStart(2, "0");
+    }
+
+    function parseLocalDate(value) {
+      const [year, month, day] = value.split("-").map(Number);
+      return new Date(year, month - 1, day, 12);
+    }
+
+    function formatDate(value, options = { day: "numeric", month: "long", year: "numeric" }) {
+      return parseLocalDate(value).toLocaleDateString("en-GB", options);
+    }
+
+    function monthTitle(month) {
+      const [year, number] = month.split("-").map(Number);
+      return new Date(year, number - 1, 1, 12).toLocaleDateString("en-GB", { month: "long", year: "numeric" });
+    }
+
+    function monthPeriod(month) {
+      const [year, number] = month.split("-").map(Number);
+      const lastDay = new Date(year, number, 0).getDate();
+      return "1 - " + lastDay + " " + monthTitle(month);
+    }
+
+    function formatMoney(amount) {
+      return "Le " + Math.round(amount).toLocaleString("en-US");
+    }
+
+    function dealerById(id) {
+      return state.dealers.find((dealer) => dealer.id === id);
+    }
+
+    function getInvoiceStatus(invoice) {
+      if (invoice.paid) return "Paid";
+      return todayISO() > monthDate(invoice.month, invoiceDueDay(invoice)) ? "Overdue" : "Unpaid";
+    }
+
+    function invoiceDueDay(invoice) {
+      return Number.isSafeInteger(invoice.dueDay) && invoice.dueDay >= 1 && invoice.dueDay <= 28
+        ? invoice.dueDay
+        : state.settings.dueDay;
+    }
+
+    function invoicesForMonth(month) {
+      return state.invoices.filter((invoice) => invoice.month === month);
+    }
+
+    function renderSummary() {
+      const outstanding = state.invoices
+        .filter((invoice) => !invoice.paid)
+        .reduce((sum, invoice) => sum + invoice.units * invoice.unitPrice - invoice.discount, 0);
+      const overdue = state.invoices.filter((invoice) => getInvoiceStatus(invoice) === "Overdue").length;
+      return '<section class="summary" aria-label="Invoice summary">' +
+        '<article class="stat"><span class="stat-label">Outstanding</span><strong class="stat-value">' + formatMoney(outstanding) + '</strong></article>' +
+        '<article class="stat"><span class="stat-label">Overdue</span><strong class="stat-value' + (overdue ? " warning" : "") + '">' + overdue + '</strong></article>' +
+        '</section>';
+    }
+
+    function renderInvoices() {
+      const currentInvoices = invoicesForMonth(selectedMonth);
+      const billedDealers = new Set(currentInvoices.map((invoice) => invoice.dealerId));
+      const availableUnits = state.dealers.reduce((sum, dealer) => {
+        const quantity = Number((state.units[selectedMonth] || {})[dealer.id]) || 0;
+        return sum + (!billedDealers.has(dealer.id) && quantity > 0 ? 1 : 0);
+      }, 0);
+      const entries = currentInvoices.slice().sort((a, b) => a.id.localeCompare(b.id));
+      const cards = entries.map((invoice) => {
+        const dealer = dealerById(invoice.dealerId);
+        if (!dealer) return "";
+        const status = getInvoiceStatus(invoice);
+        const total = invoice.units * invoice.unitPrice - invoice.discount;
+        const period = monthPeriod(invoice.month);
+        const dueDate = formatDate(monthDate(invoice.month, invoiceDueDay(invoice)));
+        return '<article class="invoice-card">' +
+          '<div class="invoice-top"><div class="invoice-meta"><span class="invoice-number">#' + escapeHTML(invoice.id) + '</span>' +
+          '<span class="status ' + status.toLowerCase() + '">' + status + '</span>' +
+          (dealer.restricted ? '<span class="restricted-tag">Dealer restricted</span>' : '') +
+          '</div><strong class="invoice-amount">' + formatMoney(total) + '</strong></div>' +
+          '<p class="invoice-dealer">' + escapeHTML(dealer.name) + '</p>' +
+          '<div class="invoice-detail">' + invoice.units.toLocaleString() + ' units · ' + escapeHTML(period) + ' · due ' + escapeHTML(dueDate) + '</div>' +
+          '<div class="invoice-actions"><button class="button small" data-action="view-invoice" data-id="' + escapeHTML(invoice.id) + '">View</button>' +
+          '<button class="button small" data-action="toggle-paid" data-id="' + escapeHTML(invoice.id) + '">Mark ' + (invoice.paid ? "unpaid" : "paid") + '</button>' +
+          (!invoice.paid ? '<button class="button small danger" data-action="delete-invoice" data-id="' + escapeHTML(invoice.id) + '">Delete</button>' : '') +
+          '</div></article>';
+      }).join("");
+      const empty = entries.length ? "" : '<div class="empty"><strong>No invoices for ' + escapeHTML(monthTitle(selectedMonth)) + '</strong>Save units for this month, then generate invoices.</div>';
+      content.innerHTML = renderSummary() +
+        '<div class="toolbar"><div class="field month-field"><label for="invoice-month">Month</label><input id="invoice-month" type="month" value="' + escapeHTML(selectedMonth) + '"></div>' +
+        '<div class="toolbar-actions"><button class="button primary" id="generate-invoices"' + (availableUnits ? "" : " disabled") + '>Generate ' + availableUnits + ' invoice' + (availableUnits === 1 ? "" : "s") + '</button>' +
+        '<button class="button" id="restrict-overdue">Restrict overdue dealers</button></div></div>' +
+        '<p class="hint">Uses the units saved for ' + escapeHTML(monthTitle(selectedMonth)) + ' and today’s price (' + formatMoney(state.settings.unitPrice) + ').</p>' +
+        '<div class="invoice-list">' + cards + empty + '</div>';
+      $("#invoice-month").addEventListener("change", (event) => {
+        if (event.target.value) {
+          selectedMonth = event.target.value;
+          render();
+        }
+      });
+      $("#generate-invoices").addEventListener("click", generateInvoices);
+      $("#restrict-overdue").addEventListener("click", restrictOverdueDealers);
+    }
+
+    function renderUnits() {
+      const records = state.units[selectedMonth] || {};
+      const items = state.dealers.map((dealer) => {
+        const existingInvoice = invoicesForMonth(selectedMonth).find((invoice) => invoice.dealerId === dealer.id);
+        const quantity = Number(records[dealer.id]) || 0;
+        const inputId = "units-" + dealer.id;
+        const unitValue = existingInvoice
+          ? existingInvoice.units * existingInvoice.unitPrice - existingInvoice.discount
+          : quantity * state.settings.unitPrice;
+        return '<div class="unit-row"><div><label class="unit-dealer" for="' + inputId + '">' + escapeHTML(dealer.name) + '</label>' +
+          (existingInvoice ? '<span class="unit-invoice-note">#' + escapeHTML(existingInvoice.id) + ' · invoiced</span>' : dealer.restricted ? '<span class="unit-invoice-note">Dealer restricted</span>' : '') +
+          '</div><input id="' + inputId + '" data-units-dealer="' + escapeHTML(dealer.id) + '" type="number" min="0" step="1" value="' + quantity + '"' + (existingInvoice ? " disabled" : "") + ' aria-label="Units sold to ' + escapeHTML(dealer.name) + '">' +
+          '<div class="unit-value">' + formatMoney(unitValue) + '</div></div>';
+      }).join("");
+      content.innerHTML = '<div class="toolbar"><div class="field month-field"><label for="units-month">Month</label><input id="units-month" type="month" value="' + escapeHTML(selectedMonth) + '"></div></div>' +
+        '<h2 class="section-heading">Units sold in ' + escapeHTML(monthTitle(selectedMonth)) + '</h2>' +
+        '<div class="unit-list">' + (items || '<div class="empty">Add a dealer before saving units.</div>') + '</div>' +
+        '<div class="unit-footer"><button class="button primary" id="save-units">Save units</button></div>';
+      $("#units-month").addEventListener("change", (event) => {
+        if (event.target.value) {
+          selectedMonth = event.target.value;
+          render();
+        }
+      });
+      content.querySelectorAll("[data-units-dealer]").forEach((input) => {
+        input.addEventListener("input", () => {
+          const quantity = Number(input.value);
+          const row = input.closest(".unit-row");
+          row.querySelector(".unit-value").textContent =
+            Number.isSafeInteger(quantity) && quantity >= 0 ? formatMoney(quantity * state.settings.unitPrice) : "Enter whole units";
+        });
+      });
+      $("#save-units").addEventListener("click", saveUnits);
+    }
+
+    function renderDealers() {
+      const list = state.dealers.map((dealer) => '<article class="dealer-card"><div class="dealer-info">' +
+        '<p class="dealer-name"><span class="dealer-number">#' + dealer.id.slice(1) + '</span> ' + escapeHTML(dealer.name) + '</p>' +
+        '<div class="dealer-contact">' + (dealer.restricted ? '<span class="status overdue">Restricted</span>' : '<span class="status">Active</span>') +
+        (dealer.address ? '<br>' + escapeHTML(dealer.address) : '') + (dealer.phone ? '<br>' + escapeHTML(dealer.phone) : '') + '</div></div>' +
+        '<div class="dealer-actions"><button class="button small" data-action="edit-dealer" data-id="' + escapeHTML(dealer.id) + '">Edit</button>' +
+        '<button class="button small" data-action="toggle-restriction" data-id="' + escapeHTML(dealer.id) + '">' + (dealer.restricted ? "Reactivate" : "Restrict") + '</button></div></article>').join("");
+      content.innerHTML = '<section class="panel"><h2 id="dealer-form-title">Add dealer</h2><form id="dealer-form">' +
+        '<div class="form-grid"><div class="field"><label for="dealer-name">Dealership name</label><input id="dealer-name" maxlength="100" required></div>' +
+        '<div class="field"><label for="dealer-address">Address</label><input id="dealer-address" maxlength="160"></div>' +
+        '<div class="field wide"><label for="dealer-phone">Phone</label><input id="dealer-phone" type="tel" maxlength="40"></div></div>' +
+        '<p class="error-message" id="dealer-error" role="alert"></p><div class="form-actions"><button class="button primary" id="save-dealer" type="submit">Save</button>' +
+        '<button class="button" id="cancel-edit" type="button" hidden>Cancel</button></div></form></section>' +
+        '<div class="dealer-list" style="margin-top:14px">' + (list || '<div class="empty">No dealers yet. Add your first dealer above.</div>') + '</div>';
+      $("#dealer-form").addEventListener("submit", saveDealer);
+      $("#cancel-edit").addEventListener("click", () => renderDealers());
+    }
+
+    function renderSettings() {
+      content.innerHTML = '<section class="panel"><h2>Settings</h2><form id="settings-form">' +
+        '<div class="form-grid"><div class="field"><label for="unit-price">Price per unit (Le)</label><input id="unit-price" type="number" min="1" step="1" required value="' + state.settings.unitPrice + '"></div>' +
+        '<div class="field"><label for="due-day">Payment due on this day of the following month</label><input id="due-day" type="number" min="1" max="28" step="1" required value="' + state.settings.dueDay + '"></div>' +
+        '<div class="field"><label for="company-name">Business name on invoice (optional)</label><input id="company-name" maxlength="120" value="' + escapeHTML(state.settings.companyName) + '" placeholder="Enter your business name"></div>' +
+        '<div class="field"><label for="company-phone">Business phone</label><input id="company-phone" type="tel" maxlength="40" value="' + escapeHTML(state.settings.companyPhone) + '"></div>' +
+        '<div class="field wide"><label for="company-address">Business address (optional)</label><input id="company-address" maxlength="180" value="' + escapeHTML(state.settings.companyAddress) + '" placeholder="Enter your business address"></div>' +
+        '<div class="field wide"><label for="payment-instructions">Payment instructions shown on invoices</label><textarea id="payment-instructions" maxlength="1200">' + escapeHTML(state.settings.paymentInstructions || "") + '</textarea></div></div>' +
+        '<p class="settings-note">The Traka logo is shown on invoices. Business details are optional and can be changed here; they are not fixed to the example invoice. A new price applies to invoices generated afterwards. Existing invoices keep their original price and company details. Use a due day from 1 to 28 so every month has that calendar date.</p>' +
+        '<p class="error-message" id="settings-error" role="alert"></p><div class="form-actions"><button class="button primary" type="submit">Save settings</button></div></form></section>';
+      $("#settings-form").addEventListener("submit", saveSettings);
+    }
+
+    function escapeHTML(value) {
+      return String(value).replace(/[&<>"']/g, (character) => ({
+        "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+      })[character]);
+    }
+
+    function render() {
+      document.querySelectorAll(".tab").forEach((tab) => {
+        tab.setAttribute("aria-selected", String(tab.dataset.page === activePage));
+      });
+      if (activePage === "invoices") renderInvoices();
+      if (activePage === "units") renderUnits();
+      if (activePage === "dealers") renderDealers();
+      if (activePage === "settings") renderSettings();
+    }
+
+    function saveUnits() {
+      if (storageFailed) return;
+      const previous = structuredClone(state.units);
+      const monthRecord = { ...(state.units[selectedMonth] || {}) };
+      let invalid = false;
+      content.querySelectorAll("[data-units-dealer]").forEach((input) => {
+        const quantity = Number(input.value);
+        if (!Number.isSafeInteger(quantity) || quantity < 0) {
+          input.setCustomValidity("Enter a whole number of units, or zero.");
+          input.reportValidity();
+          invalid = true;
+          return;
+        }
+        input.setCustomValidity("");
+        if (!invoicesForMonth(selectedMonth).some((invoice) => invoice.dealerId === input.dataset.unitsDealer)) {
+          monthRecord[input.dataset.unitsDealer] = quantity;
+        }
+      });
+      if (invalid) return;
+      state.units[selectedMonth] = monthRecord;
+      if (!persist()) state.units = previous;
+      else render();
+    }
+
+    function generateInvoices() {
+      if (storageFailed) return;
+      const existing = new Set(invoicesForMonth(selectedMonth).map((invoice) => invoice.dealerId));
+      const records = state.units[selectedMonth] || {};
+      const candidates = state.dealers.filter((dealer) => !existing.has(dealer.id) && Number(records[dealer.id]) > 0);
+      if (!candidates.length) return;
+      const previousInvoices = state.invoices.slice();
+      const previousSequence = { ...state.nextInvoiceNumber };
+      let sequence = state.nextInvoiceNumber[selectedMonth] || 1;
+      const monthCode = monthTitle(selectedMonth).split(" ")[0].slice(0, 3).toUpperCase();
+      const yearCode = selectedMonth.slice(2, 4);
+      const invoiceDate = todayISO();
+      candidates.forEach((dealer) => {
+        const invoiceNumber = String(sequence++).padStart(3, "0");
+        state.invoices.push({
+          id: monthCode + yearCode + "-" + invoiceNumber,
+          dealerId: dealer.id,
+          month: selectedMonth,
+          units: Number(records[dealer.id]),
+          unitPrice: state.settings.unitPrice,
+          dueDay: state.settings.dueDay,
+          discount: 0,
+          paid: false,
+          invoiceDate,
+          companyName: state.settings.companyName,
+          companyAddress: state.settings.companyAddress,
+          companyPhone: state.settings.companyPhone
+        });
+      });
+      state.nextInvoiceNumber[selectedMonth] = sequence;
+      if (!persist()) {
+        state.invoices = previousInvoices;
+        state.nextInvoiceNumber = previousSequence;
+      } else {
+        render();
+      }
+    }
+
+    function restrictOverdueDealers() {
+      if (storageFailed) return;
+      const overdueDealerIds = new Set(state.invoices
+        .filter((invoice) => getInvoiceStatus(invoice) === "Overdue")
+        .map((invoice) => invoice.dealerId));
+      if (!overdueDealerIds.size) {
+        window.alert("There are no overdue dealers to restrict.");
+        return;
+      }
+      const previous = state.dealers.map((dealer) => ({ ...dealer }));
+      state.dealers.forEach((dealer) => {
+        if (overdueDealerIds.has(dealer.id)) dealer.restricted = true;
+      });
+      if (!persist()) state.dealers = previous;
+      else render();
+    }
+
+    function setInvoicePaid(id) {
+      if (storageFailed) return;
+      const invoice = state.invoices.find((item) => item.id === id);
+      if (!invoice) return;
+      const previous = invoice.paid;
+      invoice.paid = !invoice.paid;
+      if (!persist()) invoice.paid = previous;
+      else render();
+    }
+
+    function deleteInvoice(id) {
+      if (storageFailed) return;
+      const invoice = state.invoices.find((item) => item.id === id);
+      if (!invoice || invoice.paid || !window.confirm("Delete invoice #" + invoice.id + "? Its saved units will become editable again.")) return;
+      const previousInvoices = state.invoices;
+      state.invoices = state.invoices.filter((item) => item.id !== id);
+      if (!persist()) state.invoices = previousInvoices;
+      else render();
+    }
+
+    function saveDealer(event) {
+      event.preventDefault();
+      if (storageFailed) return;
+      const name = $("#dealer-name").value.trim();
+      const error = $("#dealer-error");
+      if (!name) {
+        error.textContent = "Enter a dealership name.";
+        return;
+      }
+      const editId = $("#dealer-form").dataset.editId;
+      const duplicate = state.dealers.some((dealer) =>
+        dealer.name.toLocaleLowerCase() === name.toLocaleLowerCase() && dealer.id !== editId);
+      if (duplicate) {
+        error.textContent = "A dealer with this name already exists.";
+        return;
+      }
+      const previous = state.dealers.map((dealer) => ({ ...dealer }));
+      if (editId) {
+        const dealer = dealerById(editId);
+        if (!dealer) return;
+        dealer.name = name;
+        dealer.address = $("#dealer-address").value.trim();
+        dealer.phone = $("#dealer-phone").value.trim();
+      } else {
+        const id = "D" + String(state.nextDealerNumber).padStart(3, "0");
+        state.nextDealerNumber += 1;
+        state.dealers.push({
+          id, name, address: $("#dealer-address").value.trim(),
+          phone: $("#dealer-phone").value.trim(), restricted: false
+        });
+      }
+      if (!persist()) state.dealers = previous;
+      else renderDealers();
+    }
+
+    function startDealerEdit(id) {
+      const dealer = dealerById(id);
+      if (!dealer) return;
+      const form = $("#dealer-form");
+      form.dataset.editId = dealer.id;
+      $("#dealer-form-title").textContent = "Edit dealer";
+      $("#dealer-name").value = dealer.name;
+      $("#dealer-address").value = dealer.address || "";
+      $("#dealer-phone").value = dealer.phone || "";
+      $("#save-dealer").textContent = "Save changes";
+      $("#cancel-edit").hidden = false;
+      $("#dealer-name").focus();
+    }
+
+    function toggleDealerRestriction(id) {
+      if (storageFailed) return;
+      const dealer = dealerById(id);
+      if (!dealer) return;
+      const previous = dealer.restricted;
+      dealer.restricted = !dealer.restricted;
+      if (!persist()) dealer.restricted = previous;
+      else renderDealers();
+    }
+
+    function saveSettings(event) {
+      event.preventDefault();
+      if (storageFailed) return;
+      const unitPrice = Number($("#unit-price").value);
+      const dueDay = Number($("#due-day").value);
+      const error = $("#settings-error");
+      if (!Number.isSafeInteger(unitPrice) || unitPrice < 1) {
+        error.textContent = "Enter a whole-number unit price greater than zero.";
+        return;
+      }
+      if (!Number.isSafeInteger(dueDay) || dueDay < 1 || dueDay > 28) {
+        error.textContent = "Choose a due day from 1 to 28.";
+        return;
+      }
+      const previous = { ...state.settings };
+      state.settings = {
+        ...state.settings,
+        unitPrice,
+        dueDay,
+        paymentInstructions: $("#payment-instructions").value.trim(),
+        companyName: $("#company-name").value.trim(),
+        companyAddress: $("#company-address").value.trim(),
+        companyPhone: $("#company-phone").value.trim()
+      };
+      if (!persist()) state.settings = previous;
+      else renderSettings();
+    }
+
+    function showInvoice(id) {
+      const invoice = state.invoices.find((item) => item.id === id);
+      const dealer = invoice && dealerById(invoice.dealerId);
+      if (!invoice || !dealer) return;
+      selectedInvoiceId = id;
+      const dueDate = monthDate(invoice.month, invoiceDueDay(invoice));
+      const lineTotal = invoice.units * invoice.unitPrice;
+      const total = lineTotal - invoice.discount;
+      const paper = $("#invoice-paper");
+      const companyName = invoice.companyName || state.settings.companyName;
+      const companyAddress = invoice.companyAddress || state.settings.companyAddress;
+      const companyPhone = invoice.companyPhone || state.settings.companyPhone;
+      const companyDetails = (companyName ? '<strong>Name: ' + escapeHTML(companyName) + '</strong>' : '') +
+        (companyAddress ? '<div>Address: ' + escapeHTML(companyAddress) + '</div>' : '') +
+        (companyPhone ? '<div>Phone: ' + escapeHTML(companyPhone) + '</div>' : '');
+      paper.innerHTML = '<div class="invoice-header"><div><img class="invoice-logo" src="traka-logo.png" alt="Traka">' +
+        (companyDetails ? '<div class="invoice-company">' + companyDetails + '</div>' : '') +
+        '</div><h2 class="invoice-title">INVOICE</h2></div>' +
+        '<div class="invoice-doc-meta"><span>' + escapeHTML(formatDate(invoice.invoiceDate)) + '</span><strong class="invoice-doc-number">#' + escapeHTML(invoice.id) + '</strong></div>' +
+        '<div class="bill-to"><strong>' + escapeHTML(dealer.name) + '</strong>' +
+        escapeHTML(dealer.address || "Address not provided") + (dealer.phone ? '<br>' + escapeHTML(dealer.phone) : '') + '</div>' +
+        '<table class="invoice-table"><thead><tr><th>Period</th><th>Units sold</th><th>Price per unit</th><th>Total</th></tr></thead><tbody><tr>' +
+        '<td>' + escapeHTML(monthPeriod(invoice.month)) + '</td><td>' + invoice.units.toLocaleString() + '</td><td>' + formatMoney(invoice.unitPrice) +
+        '</td><td>' + formatMoney(lineTotal) + '</td></tr></tbody></table>' +
+        '<div class="totals"><div class="total-line"><span>Subtotal</span><strong>' + formatMoney(lineTotal) + '</strong></div>' +
+        '<div class="total-line"><span>Discount</span><strong>' + formatMoney(invoice.discount) + '</strong></div>' +
+        '<div class="total-line grand"><span>Total</span><strong>' + formatMoney(total) + '</strong></div></div>' +
+        '<div class="invoice-note payment-instructions"><strong>Payment instructions</strong>' +
+        escapeHTML(state.settings.paymentInstructions || "Payment instructions have not been set.") + '</div>' +
+        '<div class="invoice-note invoice-terms"><strong>Terms and conditions</strong>Kindly note that your account will be automatically restricted on the ' +
+        escapeHTML(formatDate(dueDate)) + ' if payment is not received by then.</div>';
+      invoiceDialog.showModal();
+    }
+
+    function printInvoice() {
+      if (!selectedInvoiceId) return;
+      window.print();
+    }
+
+    content.addEventListener("click", (event) => {
+      const button = event.target.closest("[data-action]");
+      if (!button) return;
+      const { action, id } = button.dataset;
+      if (action === "view-invoice") showInvoice(id);
+      if (action === "toggle-paid") setInvoicePaid(id);
+      if (action === "delete-invoice") deleteInvoice(id);
+      if (action === "edit-dealer") startDealerEdit(id);
+      if (action === "toggle-restriction") toggleDealerRestriction(id);
+    });
+
+    document.querySelectorAll(".tab").forEach((tab) => {
+      tab.addEventListener("click", () => {
+        activePage = tab.dataset.page;
+        render();
+      });
+    });
+    $("#close-invoice").addEventListener("click", () => invoiceDialog.close());
+    $("#print-invoice").addEventListener("click", printInvoice);
+    $("#download-invoice").addEventListener("click", printInvoice);
+
+    $("#today-label").textContent = new Date().toLocaleDateString("en-GB", {
+      weekday: "long", day: "numeric", month: "long", year: "numeric"
+    });
+    loadState();
+    render();
+  </script>
+</body>
+</html>
