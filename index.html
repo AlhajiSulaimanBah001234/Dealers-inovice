@@ -104,23 +104,30 @@
     .invoice-paper { padding: 28px 34px 34px; }
     .invoice-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
     .invoice-logo { display: block; width: 105px; height: 40px; object-fit: contain; object-position: left center; }
+    .invoice-dealer-details { margin-top: 6px; font-size: 10px; line-height: 1.55; }
+    .invoice-dealer-details strong { display: block; font-size: 11px; }
     .invoice-company { margin-top: 6px; font-size: 10px; line-height: 1.55; }
     .invoice-company strong { display: block; font-size: 11px; }
     .invoice-title { margin: 3px 0 0; font-size: 24px; font-weight: 800; letter-spacing: -.03em; }
-    .invoice-doc-meta { display: flex; justify-content: space-between; gap: 12px; margin: 20px 0; color: var(--muted); font-size: 12px; }
+    .invoice-title-block { text-align: right; }
+    .invoice-date { margin-top: 4px; color: var(--muted); font-size: 12px; }
+    .invoice-doc-meta { display: flex; justify-content: flex-end; gap: 12px; margin: 20px 0; color: var(--muted); font-size: 12px; }
     .invoice-doc-number { color: var(--ink); font-weight: 800; }
     .bill-to { margin-bottom: 22px; line-height: 1.65; font-size: 12px; }
     .bill-to strong { display: block; font-size: 14px; }
     .invoice-table { width: 100%; border-collapse: collapse; text-align: left; }
     .invoice-table th, .invoice-table td { padding: 10px 8px; border-bottom: 1px solid var(--line); font-size: 11px; }
     .invoice-table th { color: var(--muted); font-size: 10px; text-transform: uppercase; }
+    .invoice-table thead th { border-top: 1.5px solid var(--muted); border-bottom: 1.5px solid var(--muted); }
     .invoice-table th:not(:first-child), .invoice-table td:not(:first-child) { text-align: right; }
     .totals { display: grid; justify-content: end; gap: 8px; margin: 15px 0 24px; font-size: 12px; }
     .total-line { display: flex; justify-content: space-between; gap: 32px; }
-    .total-line.grand { padding-top: 9px; border-top: 1px solid var(--line); font-size: 15px; font-weight: 800; }
+    .total-line.grand { padding: 9px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); font-size: 15px; font-weight: 800; }
     .invoice-note { margin-top: 19px; font-size: 11px; line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; }
-    .invoice-note.payment-instructions { width: 60%; margin-right: auto; text-align: left; }
+    .invoice-note.payment-instructions { width: 100%; margin-right: 0; margin-left: 0; text-align: left; }
+    .afrimoney-instructions { display: block; width: 30%; max-width: 100%; margin-left: auto; text-align: left; }
     .invoice-note strong { display: block; margin-bottom: 5px; }
+    .invoice-note .payment-method-heading { display: block; margin-bottom: 0; }
     .invoice-terms { color: var(--muted); }
     @media (max-width: 620px) {
       .shell { padding: 23px 15px 38px; }
@@ -135,7 +142,8 @@
       .form-grid { grid-template-columns: 1fr; }
       .form-grid .wide { grid-column: auto; }
       .invoice-paper { padding: 22px 18px 26px; }
-      .invoice-note.payment-instructions { width: 100%; }
+      .invoice-note.payment-instructions { width: 100%; margin-left: 0; }
+      .afrimoney-instructions { width: 85%; }
     }
     @media print {
       body { min-width: auto; background: white; }
@@ -173,6 +181,7 @@
     <div class="dialog-actions">
       <button class="button small" id="print-invoice">Print</button>
       <button class="button small" id="download-invoice">Download</button>
+      <button class="button small" id="whatsapp-invoice">Send on WhatsApp</button>
       <button class="button small" id="close-invoice">Close</button>
     </div>
     <article class="invoice-paper" id="invoice-paper"></article>
@@ -514,6 +523,24 @@
       })[character]);
     }
 
+    function renderPaymentInstructions(instructions) {
+      const lines = instructions.split(/\r?\n/);
+      const start = lines.findIndex((line) => line.trim().toLocaleLowerCase() === "afrimoney merchant pay");
+      const renderLines = (section) => section.map((line) => {
+        const heading = line.trim().toLocaleLowerCase();
+        const text = escapeHTML(line);
+        return heading === "direct payment into bank account" || heading === "afrimoney merchant pay"
+          ? '<strong class="payment-method-heading">' + text + '</strong>'
+          : text;
+      }).join("\n");
+      if (start < 0) return renderLines(lines);
+      let end = lines.findIndex((line, index) => index > start && !line.trim());
+      if (end < 0) end = lines.length;
+      return renderLines(lines.slice(0, start)) +
+        '<span class="afrimoney-instructions">' + renderLines(lines.slice(start, end)) + '</span>' +
+        renderLines(lines.slice(end));
+    }
+
     function render() {
       document.querySelectorAll(".tab").forEach((tab) => {
         tab.setAttribute("aria-selected", String(tab.dataset.page === activePage));
@@ -722,15 +749,17 @@
       const companyName = invoice.companyName || state.settings.companyName;
       const companyAddress = invoice.companyAddress || state.settings.companyAddress;
       const companyPhone = invoice.companyPhone || state.settings.companyPhone;
+      const dealerDetails = '<strong>Name: ' + escapeHTML(dealer.name) + '</strong>' +
+        '<div>Address: ' + escapeHTML(dealer.address || "Address not provided") + '</div>' +
+        (dealer.phone ? '<div>Phone: ' + escapeHTML(dealer.phone) + '</div>' : '');
       const companyDetails = (companyName ? '<strong>Name: ' + escapeHTML(companyName) + '</strong>' : '') +
         (companyAddress ? '<div>Address: ' + escapeHTML(companyAddress) + '</div>' : '') +
         (companyPhone ? '<div>Phone: ' + escapeHTML(companyPhone) + '</div>' : '');
       paper.innerHTML = '<div class="invoice-header"><div><img class="invoice-logo" src="traka-logo.png" alt="Traka">' +
+        '<div class="invoice-dealer-details">' + dealerDetails + '</div>' +
         (companyDetails ? '<div class="invoice-company">' + companyDetails + '</div>' : '') +
-        '</div><h2 class="invoice-title">INVOICE</h2></div>' +
-        '<div class="invoice-doc-meta"><span>' + escapeHTML(formatDate(invoice.invoiceDate)) + '</span><strong class="invoice-doc-number">#' + escapeHTML(invoice.id) + '</strong></div>' +
-        '<div class="bill-to"><strong>' + escapeHTML(dealer.name) + '</strong>' +
-        escapeHTML(dealer.address || "Address not provided") + (dealer.phone ? '<br>' + escapeHTML(dealer.phone) : '') + '</div>' +
+        '</div><div class="invoice-title-block"><h2 class="invoice-title">INVOICE</h2><div class="invoice-date">' + escapeHTML(formatDate(invoice.invoiceDate)) + '</div></div></div>' +
+        '<div class="invoice-doc-meta"><strong class="invoice-doc-number">#' + escapeHTML(invoice.id) + '</strong></div>' +
         '<table class="invoice-table"><thead><tr><th>Period</th><th>Units sold</th><th>Price per unit</th><th>Total</th></tr></thead><tbody><tr>' +
         '<td>' + escapeHTML(monthPeriod(invoice.month)) + '</td><td>' + invoice.units.toLocaleString() + '</td><td>' + formatMoney(invoice.unitPrice) +
         '</td><td>' + formatMoney(lineTotal) + '</td></tr></tbody></table>' +
@@ -738,7 +767,7 @@
         '<div class="total-line"><span>Discount</span><strong>' + formatMoney(invoice.discount) + '</strong></div>' +
         '<div class="total-line grand"><span>Total</span><strong>' + formatMoney(total) + '</strong></div></div>' +
         '<div class="invoice-note payment-instructions"><strong>Payment instructions</strong>' +
-        escapeHTML(state.settings.paymentInstructions || "Payment instructions have not been set.") + '</div>' +
+        renderPaymentInstructions(state.settings.paymentInstructions || "Payment instructions have not been set.") + '</div>' +
         '<div class="invoice-note invoice-terms"><strong>Terms and conditions</strong>Kindly note that your account will be automatically restricted on the ' +
         escapeHTML(formatDate(dueDate)) + ' if payment is not received by then.</div>';
       invoiceDialog.showModal();
@@ -747,6 +776,24 @@
     function printInvoice() {
       if (!selectedInvoiceId) return;
       window.print();
+    }
+
+    function shareInvoiceWhatsApp() {
+      const invoice = state.invoices.find((item) => item.id === selectedInvoiceId);
+      const dealer = invoice && dealerById(invoice.dealerId);
+      if (!invoice || !dealer) return;
+      const total = invoice.units * invoice.unitPrice - invoice.discount;
+      const dueDate = formatDate(monthDate(invoice.month, invoiceDueDay(invoice)));
+      const phone = (dealer.phone || "").replace(/\D/g, "");
+      const message = [
+        "Hello " + dealer.name + ",",
+        "Invoice #" + invoice.id + " for " + monthTitle(invoice.month) + ".",
+        "Units: " + invoice.units.toLocaleString(),
+        "Total: " + formatMoney(total),
+        "Payment due: " + dueDate,
+        "Payment instructions:\n" + (state.settings.paymentInstructions || "Please contact us for payment instructions.")
+      ].join("\n");
+      window.open("https://wa.me/" + phone + "?text=" + encodeURIComponent(message), "_blank", "noopener,noreferrer");
     }
 
     content.addEventListener("click", (event) => {
@@ -769,6 +816,7 @@
     $("#close-invoice").addEventListener("click", () => invoiceDialog.close());
     $("#print-invoice").addEventListener("click", printInvoice);
     $("#download-invoice").addEventListener("click", printInvoice);
+    $("#whatsapp-invoice").addEventListener("click", shareInvoiceWhatsApp);
 
     $("#today-label").textContent = new Date().toLocaleDateString("en-GB", {
       weekday: "long", day: "numeric", month: "long", year: "numeric"
